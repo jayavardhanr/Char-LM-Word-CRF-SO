@@ -41,7 +41,7 @@ def train(model, Model_Parameters, train_idx_data, val_idx_data, test_idx_data):
         start = time.time()
         counter_early_stop = 0
 
-        decay_ratio = 0.05
+        #decay_ratio = 0.05
         for epoch in xrange(num_epochs):
             print 'Iteration: ', epoch
             permutation_train_idx = np.random.permutation(num_train)

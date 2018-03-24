@@ -142,7 +142,7 @@ class bilstm(object):
             # print 'pooled: ', h_pooled.get_shape()
             # (batch_size*max_sent_len, num_filters, 1)
 
-            char_pool_flat = tf.reshape(h_pooled, [s[0], s[1], s3elf.params['num_filters']])
+            char_pool_flat = tf.reshape(h_pooled, [s[0], s[1], self.params['num_filters']])
             # (batch_size, max_sent, num_filters)
 
             print vs.name, tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vs.name)
@@ -166,6 +166,9 @@ class bilstm(object):
             else:
                 word_fw_cell = rnn.LSTMCell(self.word_hidden_dim, state_is_tuple=True)
                 word_bw_cell = rnn.LSTMCell(self.word_hidden_dim, state_is_tuple=True)
+                #if self.params['dropout']:
+                #   word_fw_cell = rnn.DropoutWrapper(word_fw_cell, output_keep_prob=self.dropout_keep_prob)
+                #   word_bw_cell = rnn.DropoutWrapper(word_bw_cell, output_keep_prob=self.dropout_keep_prob)
 
             (output_seq_fw, output_seq_bw), _ = tf.nn.bidirectional_dynamic_rnn(
                                                 word_fw_cell,
@@ -175,8 +178,11 @@ class bilstm(object):
                                                 dtype=tf.float32,
                                                 swap_memory=True)
 
+
             # (batch_size, max_sent_len, 2*word_hidden_dim)
             word_biLSTM_output = tf.concat([output_seq_fw, output_seq_bw], axis=-1, name='BiLSTM')
+            #if self.params['dropout']:
+            #    word_biLSTM_output = tf.nn.dropout(word_biLSTM_output, self.dropout_keep_prob)
             print vs.name, tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vs.name)
 
         return word_biLSTM_output, output_seq_fw, output_seq_bw
@@ -292,6 +298,7 @@ class bilstm(object):
             # char encoding
             char_output, char_hiddens = self._char_lstm_word(embedded_chars, self.word_lengths)
             word_lstm_input = tf.concat([embedded_words, char_output], axis=-1)
+
         elif self.params['char_encode'] == 'cnn':
 
             # char embedding
@@ -301,13 +308,19 @@ class bilstm(object):
             # char encoding
             char_output = self._char_cnn(embedded_chars)
             word_lstm_input = tf.concat([embedded_words, char_output], axis=-1)
+
         else:
             word_lstm_input = embedded_words
 
         if self.params['dropout']:
             word_lstm_input = tf.nn.dropout(word_lstm_input, self.dropout_keep_prob)
+
         # word encoding
         word_bilstm_output, word_seq_fw, word_seq_bw = self._word_lstm(word_lstm_input, self.sequence_lengths)
+
+        if self.params['dropout']:
+            word_bilstm_output = tf.nn.dropout(word_bilstm_output, self.dropout_keep_prob)
+
         # intermediate fc layers
         self.logits = self._label_prediction(word_bilstm_output)
         # calculate loss
@@ -320,6 +333,9 @@ class bilstm(object):
             self.word_lm_loss = self._word_lm(word_seq_fw, word_seq_bw)
             self.total_loss += self.word_lm_loss
 
+        #Variable for Learning rate decay
+        global_step = tf.Variable(0, trainable=False)
+
         # optimization
         if self.params['lr_method'].lower() == 'adam':
             optimizer_total = tf.train.AdamOptimizer(self.params['lr_rate'])
@@ -328,17 +344,27 @@ class bilstm(object):
         elif self.params['lr_method'].lower() == 'adadelta':
             optimizer_total = tf.train.AdadeltaOptimizer(self.params['lr_rate'])
         elif self.params['lr_method'].lower() == 'sgd':
-            optimizer_total = tf.train.GradientDescentOptimizer(self.params['lr_rate'])
+            if self.params['weight_decay']>0:
+                learning_rate = tf.train.exponential_decay(self.params['lr_rate'],global_step, self.params['decay_steps'],
+                                                           self.params['weight_decay'])
+            else:
+                learning_rate = self.params['lr_rate']
+            optimizer_total = tf.train.GradientDescentOptimizer(learning_rate)
         elif self.params['lr_method'].lower() == 'rmsprop':
             optimizer_total = tf.train.RMSPropOptimizer(self.params['lr_rate'])
         elif self.params['lr_method'].lower() == 'momentum':
-            optimizer_total = tf.train.MomentumOptimizer(self.params['lr_rate'], self.params['momentum'])
+            if self.params['weight_decay']>0:
+                learning_rate = tf.train.exponential_decay(self.params['lr_rate'],global_step, self.params['decay_steps'],
+                                                           self.params['weight_decay'])
+            else:
+                learning_rate = self.params['lr_rate']
+            optimizer_total = tf.train.MomentumOptimizer(learning_rate, self.params['momentum'])
 
         if self.params['clip_norm'] > 0:
             grads, vs = zip(*optimizer_total.compute_gradients(self.total_loss))
             grads, gnorm = tf.clip_by_global_norm(grads, self.params['clip_norm'])
-            self.total_train_op = optimizer_total.apply_gradients(zip(grads, vs))
+            self.total_train_op = optimizer_total.apply_gradients(zip(grads, vs),global_step=global_step)
         else:
-            self.total_train_op = optimizer_total.minimize(self.total_loss)
+            self.total_train_op = optimizer_total.minimize(self.total_loss,global_step=global_step)
 
         return

@@ -39,8 +39,9 @@ def Config():
     parser.add_argument('-l', '--LEARNING_RATE', type=float, default=0.001, help='learning rate')
     parser.add_argument('-L', '--LEARNING_METHOD', type=str, default='sgd', help='learning method')
     parser.add_argument('-d', '--WEIGHT_DECAY', type=float, default=0, help='Weight decay')
+    parser.add_argument('--DECAY_STEPS', type=float, default=1000, help='decay steps')
     parser.add_argument('-n', '--CLIP_NORM', type=float, default=0, help='clip norm')
-    parser.add_argument('-r', '--DROPPUT_OUT', type=float, default=0, help='droup out')
+    parser.add_argument('-r', '--DROP_OUT', type=float, default=0, help='droup out')
     parser.add_argument('--MOMENTUM', type=float, default=0.9)
     # training parameters
     parser.add_argument('-o', '--TRAIN_EPOCHS', type=int, default=1000, help='training epoch')
@@ -127,6 +128,7 @@ def Config():
     Model_Parameters['lr_method'] = args.LEARNING_METHOD
     Model_Parameters['clip_norm'] = args.CLIP_NORM
     Model_Parameters['weight_decay'] = args.WEIGHT_DECAY
+    Model_Parameters['decay_steps'] = args.DECAY_STEPS
     Model_Parameters['momentum'] = args.MOMENTUM
     Model_Parameters['char_input_dim'] = args.CHAR_INPUT_DIM
     Model_Parameters['char_hidden_dim'] = args.CHAR_HIDDEN_DIM
@@ -139,7 +141,7 @@ def Config():
     Model_Parameters['num_filters'] = args.NUM_FILTERS
     Model_Parameters['max_sent_len'] = 0
     Model_Parameters['max_char_len'] = 0
-    Model_Parameters['dropout'] = args.DROPPUT_OUT
+    Model_Parameters['dropout'] = args.DROP_OUT
     Model_Parameters['char_encode'] = args.CHAR_ENCODE
 
     # training parameters
