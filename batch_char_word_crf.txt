@@ -25,8 +25,8 @@ python -u main.py \
 --USE_CRF_LOSS=True \
 --CHAR_ATTENTION=False \
 --PATIENCES=10 \
--L=adam \
---LEARNING_RATE=0.001 \
+-L=sgd \
+--LEARNING_RATE=0.015 \
 --CLIP_NORM=5.0 \
 --MOMENTUM=0.9 \
 --WORD_LOWER=True \

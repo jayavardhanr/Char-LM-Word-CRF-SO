@@ -13,6 +13,7 @@ class bilstm(object):
         self.tag_size = self.params['tag_size']
         self.char_tag_size = self.params['char_tag_size']
         self.clip_norm = self.params['clip_norm']
+        #self.dropout_keep_prob = self.params['dropout']
         # word
         self.vocab_size = self.params['vocab_size']
         self.word_input_dim = self.params['word_input_dim']
@@ -71,10 +72,10 @@ class bilstm(object):
                 bw_cells = []
                 for _ in range(self.params['num_layers']):
                     fw_cell = rnn.LSTMCell(self.char_hidden_dim, state_is_tuple=True)
-                    fw_cell = rnn.DropoutWrapper(fw_cell, output_keep_prob=self.dropout_keep_prob)
+                    #fw_cell = rnn.DropoutWrapper(fw_cell, output_keep_prob=self.dropout_keep_prob)
                     fw_cells.append(fw_cell)
                     bw_cell = rnn.LSTMCell(self.char_hidden_dim, state_is_tuple=True)
-                    bw_cell = rnn.DropoutWrapper(bw_cell, output_keep_prob=self.dropout_keep_prob)
+                    #bw_cell = rnn.DropoutWrapper(bw_cell, output_keep_prob=self.dropout_keep_prob)
                     bw_cells.append(bw_cell)
                 char_fw_cell = rnn.MultiRNNCell(fw_cells, state_is_tuple=True)
                 char_bw_cell = rnn.MultiRNNCell(bw_cells, state_is_tuple=True)
@@ -114,8 +115,7 @@ class bilstm(object):
 
             filter_shape = [self.params['filter_size'], self.char_input_dim, self.params['num_filters']]
             W_filter = tf.get_variable("W_filter",
-                                       shape=filter_shape,
-                                       initializer=tf.contrib.layers.xavier_initializer())
+                                       shape=filter_shape)
             b_filter = tf.Variable(tf.constant(0.0, shape=[self.params['num_filters']]), name='f_filter')
 
             # input: [batch, in_width, in_channels]
@@ -156,10 +156,10 @@ class bilstm(object):
                 bw_cells = []
                 for _ in range(self.params['num_layers']):
                     fw_cell = rnn.LSTMCell(self.word_hidden_dim, state_is_tuple=True)
-                    fw_cell = rnn.DropoutWrapper(fw_cell, output_keep_prob=self.dropout_keep_prob)
+                    #fw_cell = rnn.DropoutWrapper(fw_cell, output_keep_prob=self.dropout_keep_prob)
                     fw_cells.append(fw_cell)
                     bw_cell = rnn.LSTMCell(self.word_hidden_dim, state_is_tuple=True)
-                    bw_cell = rnn.DropoutWrapper(bw_cell, output_keep_prob=self.dropout_keep_prob)
+                    #bw_cell = rnn.DropoutWrapper(bw_cell, output_keep_prob=self.dropout_keep_prob)
                     bw_cells.append(bw_cell)
                 word_fw_cell = rnn.MultiRNNCell(fw_cells, state_is_tuple=True)
                 word_bw_cell = rnn.MultiRNNCell(bw_cells, state_is_tuple=True)
@@ -193,14 +193,12 @@ class bilstm(object):
             reshape_biLSTM_output = tf.reshape(word_bilstm_output, [-1, 2*self.word_hidden_dim])
 
             W_fc1 = tf.get_variable("softmax_W_fc1",
-                                    shape=[2*self.word_hidden_dim, self.word_hidden_dim],
-                                    initializer=tf.contrib.layers.xavier_initializer())
+                                    shape=[2*self.word_hidden_dim, self.word_hidden_dim])
             b_fc1 = tf.Variable(tf.constant(0.0, shape=[self.word_hidden_dim]), name='softmax_b_fc1')
             o_fc1 = tf.nn.relu(tf.nn.xw_plus_b(reshape_biLSTM_output, W_fc1, b_fc1))
 
             W_out = tf.get_variable("softmax_W_out",
-                                    shape=[self.word_hidden_dim, self.tag_size],
-                                    initializer=tf.contrib.layers.xavier_initializer())
+                                    shape=[self.word_hidden_dim, self.tag_size])
             b_out = tf.Variable(tf.constant(0.0, shape=[self.tag_size]), name='softmax_b_out')
             # self.predictions = tf.matmul(self.biLSTM_output, W_out) + b_out
             predictions = tf.nn.xw_plus_b(o_fc1, W_out, b_out, name='softmax_output')
@@ -212,13 +210,14 @@ class bilstm(object):
         return logits
 
     def _loss_cal(self, logits):
+        #print("input to the loss function ",tf.shape(logits))
         with tf.variable_scope('loss') as vs:
             if self.params['use_crf_loss']:
                 log_likelihood, self.transition_params = \
                     tf.contrib.crf.crf_log_likelihood(logits,
                                                       self.tag_input_ids,
                                                       self.sequence_lengths)
-                word_loss = tf.reduce_mean(-log_likelihood, name='crf_negloglik_loss')
+                word_loss = tf.reduce_mean(-1*log_likelihood, name='crf_neg_log_likelihood_loss')
                 # print self.transition_params.name
             else:
                 # add softmax loss
@@ -236,8 +235,7 @@ class bilstm(object):
         lm_loss = 0
         with tf.variable_scope('forward_lm') as vs:
             W_forward = tf.get_variable('softmax_for_W',
-                                          shape=[self.word_hidden_dim, self.params['lm_vocab_size']],
-                                          initializer=tf.contrib.layers.xavier_initializer())
+                                          shape=[self.word_hidden_dim, self.params['lm_vocab_size']])
             b_forward = tf.Variable(tf.constant(0.0, shape=[self.params['lm_vocab_size']]), name='softmax_for_b')
             bilstm_for_reshape = tf.reshape(word_seq_fw, shape=[-1, self.word_hidden_dim])
             pred_forward = tf.nn.xw_plus_b(bilstm_for_reshape, W_forward, b_forward, name='softmax_forward')
@@ -253,8 +251,7 @@ class bilstm(object):
 
         with tf.variable_scope('backward_lm') as vs:
             W_backward = tf.get_variable('softmax_bak_W',
-                                          shape=[self.word_hidden_dim, self.params['lm_vocab_size']],
-                                          initializer=tf.contrib.layers.xavier_initializer())
+                                          shape=[self.word_hidden_dim, self.params['lm_vocab_size']])
             b_backward = tf.Variable(tf.constant(0.0, shape=[self.params['lm_vocab_size']]), name='softmax_bak_b')
             bilstm_bak_reshape = tf.reshape(word_seq_bw, shape=[-1, self.word_hidden_dim])
             pred_backward = tf.nn.xw_plus_b(bilstm_bak_reshape, W_backward, b_backward, name='softmax_backward')
@@ -286,15 +283,15 @@ class bilstm(object):
 
         # word embedding
         embedded_words = self._word_embedding(self.word_input_ids)
-        if self.params['dropout']:
-            embedded_words = tf.nn.dropout(embedded_words, self.dropout_keep_prob)
+        #if self.params['dropout']:
+        #    embedded_words = tf.nn.dropout(embedded_words, self.dropout_keep_prob)
 
         if self.params['char_encode'] == 'lstm':
 
             # char embedding
             embedded_chars = self._char_embedding(self.char_input_ids)
-            if self.params['dropout']:
-                embedded_chars = tf.nn.dropout(embedded_chars, self.dropout_keep_prob)
+            #if self.params['dropout']:
+            #    embedded_chars = tf.nn.dropout(embedded_chars, self.dropout_keep_prob)
             # char encoding
             char_output, char_hiddens = self._char_lstm_word(embedded_chars, self.word_lengths)
             word_lstm_input = tf.concat([embedded_words, char_output], axis=-1)
@@ -303,8 +300,8 @@ class bilstm(object):
 
             # char embedding
             embedded_chars = self._char_embedding(self.char_input_ids)
-            if self.params['dropout']:
-                embedded_chars = tf.nn.dropout(embedded_chars, self.dropout_keep_prob)
+            #if self.params['dropout']:
+            #   embedded_chars = tf.nn.dropout(embedded_chars, self.dropout_keep_prob)
             # char encoding
             char_output = self._char_cnn(embedded_chars)
             word_lstm_input = tf.concat([embedded_words, char_output], axis=-1)
@@ -331,10 +328,13 @@ class bilstm(object):
             self.forward_words = tf.placeholder(tf.int32, [None, None], name='forward_words')
             self.backward_words = tf.placeholder(tf.int32, [None, None], name='backward_words')
             self.word_lm_loss = self._word_lm(word_seq_fw, word_seq_bw)
-            self.total_loss += self.word_lm_loss
+            self.total_loss += (0.1*self.word_lm_loss)
 
-        #Variable for Learning rate decay
-        global_step = tf.Variable(0, trainable=False)
+        ##decay
+        #global_step = tf.Variable(0, name="global_step", trainable=False)
+        #self.params['decay_steps'] = int(self.params['train_size'] / self.params['batch_size'])
+        #learning_rate = tf.train.exponential_decay(self.params['lr_rate'], global_step,
+        #self.params['decay_steps'],self.params['weight_decay'],staircase=True)
 
         # optimization
         if self.params['lr_method'].lower() == 'adam':
@@ -344,27 +344,17 @@ class bilstm(object):
         elif self.params['lr_method'].lower() == 'adadelta':
             optimizer_total = tf.train.AdadeltaOptimizer(self.params['lr_rate'])
         elif self.params['lr_method'].lower() == 'sgd':
-            if self.params['weight_decay']>0:
-                learning_rate = tf.train.exponential_decay(self.params['lr_rate'],global_step, self.params['decay_steps'],
-                                                           self.params['weight_decay'])
-            else:
-                learning_rate = self.params['lr_rate']
-            optimizer_total = tf.train.GradientDescentOptimizer(learning_rate)
+            optimizer_total = tf.train.GradientDescentOptimizer(self.params['lr_rate'])
         elif self.params['lr_method'].lower() == 'rmsprop':
             optimizer_total = tf.train.RMSPropOptimizer(self.params['lr_rate'])
         elif self.params['lr_method'].lower() == 'momentum':
-            if self.params['weight_decay']>0:
-                learning_rate = tf.train.exponential_decay(self.params['lr_rate'],global_step, self.params['decay_steps'],
-                                                           self.params['weight_decay'])
-            else:
-                learning_rate = self.params['lr_rate']
-            optimizer_total = tf.train.MomentumOptimizer(learning_rate, self.params['momentum'])
+            optimizer_total = tf.train.MomentumOptimizer(self.params['lr_rate'], self.params['momentum'])
 
         if self.params['clip_norm'] > 0:
             grads, vs = zip(*optimizer_total.compute_gradients(self.total_loss))
             grads, gnorm = tf.clip_by_global_norm(grads, self.params['clip_norm'])
-            self.total_train_op = optimizer_total.apply_gradients(zip(grads, vs),global_step=global_step)
+            self.total_train_op = optimizer_total.apply_gradients(zip(grads, vs))
         else:
-            self.total_train_op = optimizer_total.minimize(self.total_loss,global_step=global_step)
+            self.total_train_op = optimizer_total.minimize(self.total_loss)
 
         return

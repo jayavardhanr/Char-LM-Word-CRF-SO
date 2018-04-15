@@ -41,7 +41,7 @@ def train(model, Model_Parameters, train_idx_data, val_idx_data, test_idx_data):
         start = time.time()
         counter_early_stop = 0
 
-        #decay_ratio = 0.05
+        #decay_ratio = 0.9
         for epoch in xrange(num_epochs):
             print 'Iteration: ', epoch
             permutation_train_idx = np.random.permutation(num_train)
@@ -139,14 +139,17 @@ def train(model, Model_Parameters, train_idx_data, val_idx_data, test_idx_data):
                 plotting_storing(Model_Parameters, loss_train_record, loss_val_record, loss_test_record,
                                f1_train_record, f1_val_record, f1_test_record)
 
+            if Model_Parameters['weight_decay']:
+                #if Model_Parameters['lr_method'] == 'sgd' or Model_Parameters['lr_method'] == 'momentum':
+                model.params['lr_rate'] *= Model_Parameters['weight_decay']
+                print('new_learning_rate',model.params['lr_rate'])
+
             if not improve_flag:
                 counter_early_stop += 1
                 if counter_early_stop >= Model_Parameters['patiences']:
                     print 'Early stopping at iteration: %d!' % (epoch)
                     break
             print '-------------------------------------------------------------'
-            # if Model_Parameters['weight_decay']:
-            #     if Model_Parameters['lr_method'] == 'sgd' or Model_Parameters['lr_method'] == 'momentum':
-            #         model.params['lr_rate'] /= (1 + Model_Parameters['weight_decay'])
+
 
     return

@@ -39,7 +39,7 @@ def Config():
     parser.add_argument('-l', '--LEARNING_RATE', type=float, default=0.001, help='learning rate')
     parser.add_argument('-L', '--LEARNING_METHOD', type=str, default='sgd', help='learning method')
     parser.add_argument('-d', '--WEIGHT_DECAY', type=float, default=0, help='Weight decay')
-    parser.add_argument('--DECAY_STEPS', type=float, default=1000, help='decay steps')
+    parser.add_argument('--DECAY_STEPS', type=int, default=1000, help='decay steps')
     parser.add_argument('-n', '--CLIP_NORM', type=float, default=0, help='clip norm')
     parser.add_argument('-r', '--DROP_OUT', type=float, default=0, help='droup out')
     parser.add_argument('--MOMENTUM', type=float, default=0.9)

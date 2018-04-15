@@ -47,10 +47,18 @@ def main():
 
     if Model_Parameters['train_size'] and Model_Parameters['train_size'] < len(train_sents):
         train_sents = train_sents[:Model_Parameters['train_size']]
+    else:
+        Model_Parameters['train_size']=len(train_sents)
+
     if Model_Parameters['val_size'] and Model_Parameters['val_size'] < len(val_sents):
         val_sents = val_sents[:Model_Parameters['val_size']]
+    else:
+        Model_Parameters['val_size']=len(val_sents)
+
     if Model_Parameters['test_size'] and Model_Parameters['test_size'] < len(test_sents):
         test_sents = test_sents[:Model_Parameters['test_size']]
+    else:
+        Model_Parameters['test_size']=len(test_sents)
 
     if Model_Parameters['char_encode'] == 'cnn':
         Model_Parameters['max_sent_len'] = max(get_max_sent_length(train_sents),
